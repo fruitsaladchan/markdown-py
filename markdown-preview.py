@@ -1,0 +1,383 @@
+#!/usr/bin/python3
+
+import http.server
+import markdown2
+import os
+import sys
+import webbrowser
+import signal
+import threading
+
+PORT = 8000
+
+
+class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, markdown_file=None, **kwargs):
+        self.markdown_file = markdown_file
+        super().__init__(*args, **kwargs)
+
+    def do_GET(self):
+        if self.path == "/":
+            try:
+                with open(self.markdown_file, "r", encoding="utf-8") as file:
+                    content = file.read()
+                html_content = markdown2.markdown(
+                    content,
+                    extras=[
+                        "fenced-code-blocks",
+                        "break-on-newline",
+                        "tables",
+                        "cuddled-lists",
+                    ],
+                )
+                self.send_response(200)
+                self.send_header("Content-type", "text/html")
+                self.end_headers()
+                self.wfile.write(
+                    f"""
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>{os.path.basename(self.markdown_file)}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+                    <style>
+                            :root[data-theme="dark"] {{
+                            --bg-primary: #19171a;
+                            --bg-secondary: #201e21;
+                            --text-primary: #d8dee9;;
+                            --text-secondary: #a0a0a0;
+                            --accent: #6b9ff8;
+                            --code-color: #f5f5f5;
+                            --border-color: #383838;
+                            --switch-bg: #383838;
+                            --switch-circle: #eaeaea;
+                        }}
+
+                        :root[data-theme="light"] {{
+                            --bg-primary: #ffffff;
+                            --bg-secondary: #f5f5f5;
+                            --text-primary: #1a1a1a;
+                            --text-secondary: #666666;
+                            --accent: #2563eb;
+                            --code-color: #1a1a1a;
+                            --border-color: #e5e5e5;
+                            --switch-bg: #e5e5e5;
+                            --switch-circle: #1a1a1a;
+                        }}
+                        
+                        * {{
+                            box-sizing: border-box;
+                            margin: 0;
+                            padding: 0;
+                        }}
+                        
+                        body {{
+                            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                            background-color: var(--bg-primary);
+                            color: var(--text-primary);
+                            margin: 0;
+                            padding-top: 60px;
+                            line-height: 1.6;
+                            font-size: 16px;
+                            -webkit-font-smoothing: antialiased;
+                            font-weight: 400;
+                            transition: background-color 0.3s ease, color 0.3s ease;
+                        }}
+                        
+                        .header {{
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            height: 56px;
+                            background-color: var(--bg-secondary);
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            padding: 0 24px;
+                            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                            z-index: 1000;
+                            backdrop-filter: blur(8px);
+                            border-bottom: 1px solid var(--border-color);
+                            transition: background-color 0.3s ease;
+                        }}
+                        
+                        .header .file-info {{
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+                            color: var(--text-primary);
+                            font-size: 14px;
+                            font-weight: 500;
+                        }}
+                        
+                        .theme-switch {{
+                            position: relative;
+                            width: 48px;
+                            height: 24px;
+                            background-color: var(--switch-bg);
+                            border-radius: 12px;
+                            cursor: pointer;
+                            transition: background-color 0.3s ease;
+                        }}
+
+                        .theme-switch::after {{
+                            content: '';
+                            position: absolute;
+                            left: 4px;
+                            top: 4px;
+                            width: 16px;
+                            height: 16px;
+                            background-color: var(--switch-circle);
+                            border-radius: 50%;
+                            transition: transform 0.3s ease;
+                        }}
+
+                        :root[data-theme="light"] .theme-switch::after {{
+                            transform: translateX(24px);
+                        }}
+
+                        .file-icon {{
+                            width: 20px;
+                            height: 20px;
+                            fill: var(--text-secondary);
+                        }}
+                        .content {{
+                            max-width: 860px;
+                            margin: 0 auto;
+                            padding: 32px 24px;
+                        }}
+                        
+                        pre {{ 
+                            background-color: var(--bg-secondary);
+                            padding: 16px;
+                            border-radius: 8px;
+                            overflow-x: auto;
+                            white-space: pre;
+                            tab-size: 4;
+                            margin: 20px 0;
+                            border: 1px solid var(--border-color);
+                        }}
+                        
+                        pre code {{ 
+                            background-color: transparent;
+                            padding: 0;
+                            color: var(--code-color);
+                            white-space: pre;
+                            display: block;
+                            font-family: 'Inter', monospace;
+                            font-size: 14px;
+                            line-height: 1.5;
+                        }}
+                        
+                        code {{ 
+                            background-color: var(--bg-secondary);
+                            padding: 2px 6px;
+                            border-radius: 4px;
+                            color: var(--code-color);
+                            font-size: 0.9em;
+                            font-family: 'Inter', monospace;
+                        }}
+                        
+                        h1, h2, h3, h4, h5, h6 {{
+                            font-family: 'Inter', sans-serif;
+                            font-weight: 600;
+                            line-height: 1.3;
+                            margin: 2em 0 1em;
+                            color: var(--text-primary);
+                        }}
+                        
+                        h1 {{
+                            font-size: 26px;
+                            border-bottom: 1px solid var(--border-color);
+                            padding-bottom: 0.5em;
+                        }}
+                        
+                        h2 {{
+                            font-size: 24px;
+                            border-bottom: 1px solid var(--border-color);
+                            padding-bottom: 0.5em;
+                        }}
+                        
+                        h3 {{ font-size: 22px; }}
+                        h4 {{ font-size: 20px; }}
+                        h5 {{ font-size: 18px }}
+                        h6 {{ font-size: 16px; }}
+                        
+                        p {{
+                            margin: 1em 0;
+                            line-height: 1.7;
+                            font-family: 'Inter', sans-serif;
+                        }}
+                        
+                        a {{ 
+                            color: var(--accent);
+                            text-decoration: none;
+                            transition: color 0.2s ease;
+                        }}
+                        
+                        a:hover {{ 
+                            text-decoration: underline;
+                        }}
+                        
+                        ul, ol {{
+                            padding-left: 1.5em;
+                            margin: 1em 0;
+                            font-family: 'Inter', sans-serif;
+                        }}
+                        
+                        li {{
+                            margin: 0.5em 0;
+                        }}
+                        
+                        hr {{
+                            border: none;
+                            border-bottom: 1px solid var(--border-color);
+                            margin: 2em 0;
+                        }}
+                        
+                        blockquote {{
+                            border-left: 4px solid var(--accent);
+                            margin: 1.5em 0;
+                            padding: 0.5em 0 0.5em 1em;
+                            color: var(--text-secondary);
+                            background-color: var(--bg-secondary);
+                            border-radius: 4px;
+                            font-family: 'Inter', sans-serif;
+                        }}
+                        
+                        img {{
+                            max-width: 100%;
+                            height: auto;
+                            border-radius: 8px;
+                            margin: 1em 0;
+                        }}
+                        
+                        table {{
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 1em 0;
+                            background-color: var(--bg-secondary);
+                            border-radius: 8px;
+                            overflow: hidden;
+                            font-family: 'Inter', sans-serif;
+                        }}
+                        
+                        th, td {{
+                            padding: 12px 16px;
+                            border: 1px solid var(--border-color);
+                            text-align: left;
+                        }}
+                        
+                        th {{
+                            background-color: rgba(0,0,0,0.1);
+                            font-weight: 600;
+                        }}
+                        
+                        @media (max-width: 768px) {{
+                            body {{
+                                font-size: 15px;
+                            }}
+                            
+                            .content {{
+                                padding: 24px 16px;
+                            }}
+                            
+                            pre {{
+                                padding: 12px;
+                                font-size: 13px;
+                            }}
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="file-info">
+                            <svg class="file-icon" viewBox="0 0 24 24">
+                                <path d="M14.17 3H5C3.9 3 3 3.9 3 5v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8.83c0-.53-.21-1.04-.59-1.41l-4.83-4.83c-.37-.38-.88-.59-1.41-.59zM16 15H8v-2h8v2zm0-4H8V9h8v2z"/>
+                            </svg>
+                            <span>{os.path.basename(self.markdown_file)}</span>
+                        </div>
+                        <div class="theme-switch" role="button" tabindex="0" aria-label="Toggle theme"></div>
+                    </div>
+                    <div class="content">
+                        {html_content}
+                    </div>
+                    <script>
+                        const themeSwitch = document.querySelector('.theme-switch');
+                        const root = document.documentElement;
+                        
+                        const savedTheme = localStorage.getItem('theme') || 'dark';
+                        root.setAttribute('data-theme', savedTheme);
+                        
+                        themeSwitch.addEventListener('click', () => {{
+                            const currentTheme = root.getAttribute('data-theme');
+                            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                            
+                            root.setAttribute('data-theme', newTheme);
+                            localStorage.setItem('theme', newTheme);
+                        }});
+
+                        themeSwitch.addEventListener('keydown', (e) => {{
+                            if (e.key === 'Enter' || e.key === ' ') {{
+                                e.preventDefault();
+                                themeSwitch.click();
+                            }}
+                        }});
+                    </script>
+                </body>
+                </html>
+                """.encode(
+                        "utf-8"
+                    )
+                )
+            except FileNotFoundError:
+                self.send_error(404, "Markdown File Not Found")
+        else:
+            super().do_GET()
+
+
+def run_server(markdown_file):
+    handler = lambda *args, **kwargs: MarkdownHandler(
+        *args, markdown_file=markdown_file, **kwargs
+    )
+
+    shutdown_event = threading.Event()
+
+    class ShutdownableHTTPServer(http.server.ThreadingHTTPServer):
+        def service_actions(self):
+            if shutdown_event.is_set():
+                raise KeyboardInterrupt
+
+    httpd = ShutdownableHTTPServer(("", PORT), handler)
+
+    def shutdown_server(signum, frame):
+        print("\nShutting down server...")
+        shutdown_event.set()
+        threading.Timer(0.5, lambda: os._exit(0)).start()
+
+    signal.signal(signal.SIGINT, shutdown_server)
+    signal.signal(signal.SIGTERM, shutdown_server)
+
+    try:
+        print(f"Serving '{markdown_file}' at http://localhost:{PORT}")
+        webbrowser.open(f"http://localhost:{PORT}")
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        httpd.server_close()
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python main.py file.md")
+        sys.exit(1)
+
+    markdown_file = sys.argv[1]
+    if not os.path.isfile(markdown_file):
+        print(f"Error: File '{markdown_file}' not found.")
+        sys.exit(1)
+
+    run_server(markdown_file)
