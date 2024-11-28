@@ -16,6 +16,10 @@ class MarkdownHandler(http.server.SimpleHTTPRequestHandler):
         self.markdown_file = markdown_file
         super().__init__(*args, **kwargs)
 
+    def log_message(self, format, *args):
+        # disable logging
+        pass
+
     def do_GET(self):
         if self.path == "/":
             try:
