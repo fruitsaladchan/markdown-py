@@ -376,7 +376,7 @@ def run_server(markdown_file):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python main.py file.md")
+        print("Usage: python markdown-py **file.md**")
         sys.exit(1)
 
     markdown_file = sys.argv[1]
